@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  sale-service:
+    image: order-service:1.0.0
+    container_name: order-service
+    ports:
+      - "9820:9820"
+    env_file:
+      - app.env
+    restart: unless-stopped
+    depends_on:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9820/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - inventium
+
+networks:
+  inventium:
+    name: inventium
+    external: true
