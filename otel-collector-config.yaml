@@ -1,0 +1,43 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317 # gRPC endpoint for OTLP
+      http:
+        endpoint: 0.0.0.0:4318 # HTTP endpoint for OTLP/HTTP
+
+exporters:
+  otlphttp:
+    endpoint: "http://tempo:4318"
+  file:
+    path: /logs/otel-collector-logs.json
+    format: json
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      exporters:
+        - debug
+        - loki
+      receivers:
+        - otlp
+    metrics:
+      exporters:
+        - debug
+      # processors:
+      #   - memory_limiter
+      #   - batch
+      receivers:
+        - otlp
+    traces: # here, we add the receivers and exporters accordingly
+      exporters:
+        - otlphttp
+      # processors:
+      #   - memory_limiter
+      #   - batch
+      receivers:
+        - otlp
