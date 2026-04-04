@@ -118,6 +118,6 @@ func main() {
 
 	}
 	router := api.NewServer(conn, config.ServiceName, "1.0.0", config.OTELExporterOTLPEndpoint, config.OTELExporterOTLPHeaders)
-	router.Run(":9820", config.ServiceName)
+	_ = router.Run(":9820", config.ServiceName)
 
 }
