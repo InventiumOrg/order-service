@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const orderRecipeIDAttribute = "order.recipe_id"
+
 type Handlers struct {
 	queries           *models.Queries
 	tracer            trace.Tracer
@@ -198,7 +200,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	span.SetAttributes(
 		attribute.Int("order.pos_id", int(posID)),
 		attribute.Int("order.price", int(price)),
-		attribute.Int("order.recipe_id", int(recipeID)),
+		attribute.Int(orderRecipeIDAttribute, int(recipeID)),
 	)
 
 	dbStart := time.Now()
@@ -213,7 +215,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	if err != nil {
 		slog.Error("failed to create order",
 			slog.Int64("order.pos_id", int64(param.PosID)),
-			slog.Int64("order.recipe_id", int64(param.RecipeID)),
+			slog.Int64(orderRecipeIDAttribute, int64(param.RecipeID)),
 			slog.Any("err", err),
 		)
 		span.RecordError(err)
@@ -238,7 +240,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	slog.Info("order created",
 		slog.Int64("order.id", order.ID),
 		slog.Int64("order.pos_id", int64(order.PosID)),
-		slog.Int64("order.recipe_id", int64(order.RecipeID)),
+		slog.Int64(orderRecipeIDAttribute, int64(order.RecipeID)),
 	)
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message": "Create Order Successfully",
