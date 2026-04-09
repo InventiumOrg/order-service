@@ -61,7 +61,7 @@ func NewServer(db *pgx.Conn, serviceName, serviceVersion, otelEndpoint, otelHead
 }
 
 func (s *Server) Run(addr string, serviceName string) error {
-	s.router.SetTrustedProxies(nil)
+	_ = s.router.SetTrustedProxies(nil)
 
 	// Add OpenTelemetry middleware
 	s.router.Use(otelgin.Middleware(serviceName))
