@@ -40,6 +40,7 @@ func (h *Handlers) GetOrder(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		slog.Info("get order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid order ID",
 		})
@@ -59,7 +60,7 @@ func (h *Handlers) GetOrder(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("Got an error while getting order", slog.Any("err", err.Error()))
+		slog.Error("failed to get order", slog.Int64("order.id", id), slog.Any("err", err))
 		span.RecordError(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to get order",
@@ -78,6 +79,10 @@ func (h *Handlers) GetOrder(ctx *gin.Context) {
 		attribute.String("operation.status", "success"),
 	)
 
+	slog.Info("order retrieved",
+		slog.Int64("order.id", id),
+		slog.Int64("order.pos_id", int64(order.PosID)),
+	)
 	ctx.JSON(200, gin.H{
 		"message": "Get Order Successfully",
 		"data":    order,
@@ -108,7 +113,7 @@ func (h *Handlers) ListOrder(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("Got an error while listing orders", slog.Any("err", err.Error()))
+		slog.Error("failed to list orders", slog.Any("err", err))
 		span.RecordError(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to list orders",
@@ -126,6 +131,7 @@ func (h *Handlers) ListOrder(ctx *gin.Context) {
 		attribute.String("operation.status", "success"),
 	)
 
+	slog.Info("orders listed", slog.Int("count", len(orders)))
 	ctx.JSON(200, gin.H{
 		"message": "List Orders Successfully",
 		"data":    orders,
@@ -144,6 +150,11 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	recipeIDStr := ctx.PostForm("recipe_id")
 
 	if posIDStr == "" || priceStr == "" || recipeIDStr == "" {
+		slog.Info("create order rejected: missing parameters",
+			slog.Bool("has_pos_id", posIDStr != ""),
+			slog.Bool("has_price", priceStr != ""),
+			slog.Bool("has_recipe_id", recipeIDStr != ""),
+		)
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing required parameters: pos_id, price, recipe_id",
 		})
@@ -152,6 +163,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 
 	posID, err := strconv.ParseInt(posIDStr, 10, 32)
 	if err != nil {
+		slog.Info("create order rejected: invalid pos_id", slog.String("pos_id", posIDStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid pos_id",
 		})
@@ -160,6 +172,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 
 	price, err := strconv.ParseInt(priceStr, 10, 32)
 	if err != nil {
+		slog.Info("create order rejected: invalid price", slog.String("price", priceStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid price",
 		})
@@ -168,6 +181,7 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 
 	recipeID, err := strconv.ParseInt(recipeIDStr, 10, 32)
 	if err != nil {
+		slog.Info("create order rejected: invalid recipe_id", slog.String("recipe_id", recipeIDStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid recipe_id",
 		})
@@ -197,7 +211,11 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("Could not create order", slog.Any("err", err.Error()))
+		slog.Error("failed to create order",
+			slog.Int64("order.pos_id", int64(param.PosID)),
+			slog.Int64("order.recipe_id", int64(param.RecipeID)),
+			slog.Any("err", err),
+		)
 		span.RecordError(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create order",
@@ -217,6 +235,11 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 		attribute.String("operation.status", "success"),
 	)
 
+	slog.Info("order created",
+		slog.Int64("order.id", order.ID),
+		slog.Int64("order.pos_id", int64(order.PosID)),
+		slog.Int64("order.recipe_id", int64(order.RecipeID)),
+	)
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message": "Create Order Successfully",
 		"data":    order,
@@ -232,6 +255,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		slog.Info("update order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid order ID",
 		})
@@ -244,6 +268,12 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 	recipeIDStr := ctx.PostForm("recipe_id")
 
 	if posIDStr == "" || priceStr == "" || recipeIDStr == "" {
+		slog.Info("update order rejected: missing parameters",
+			slog.Int64("order.id", id),
+			slog.Bool("has_pos_id", posIDStr != ""),
+			slog.Bool("has_price", priceStr != ""),
+			slog.Bool("has_recipe_id", recipeIDStr != ""),
+		)
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Missing required parameters: pos_id, price, recipe_id",
 		})
@@ -252,6 +282,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 
 	posID, err := strconv.ParseInt(posIDStr, 10, 32)
 	if err != nil {
+		slog.Info("update order rejected: invalid pos_id", slog.Int64("order.id", id), slog.String("pos_id", posIDStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid pos_id",
 		})
@@ -260,6 +291,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 
 	price, err := strconv.ParseInt(priceStr, 10, 32)
 	if err != nil {
+		slog.Info("update order rejected: invalid price", slog.Int64("order.id", id), slog.String("price", priceStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid price",
 		})
@@ -268,6 +300,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 
 	recipeID, err := strconv.ParseInt(recipeIDStr, 10, 32)
 	if err != nil {
+		slog.Info("update order rejected: invalid recipe_id", slog.Int64("order.id", id), slog.String("recipe_id", recipeIDStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid recipe_id",
 		})
@@ -297,7 +330,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("Could not update order", slog.Any("err", err.Error()))
+		slog.Error("failed to update order", slog.Int64("order.id", id), slog.Any("err", err))
 		span.RecordError(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to update order",
@@ -312,6 +345,7 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 
 	span.SetAttributes(attribute.String("operation.status", "success"))
 
+	slog.Info("order updated", slog.Int64("order.id", id), slog.Int64("order.pos_id", int64(order.PosID)))
 	ctx.JSON(200, gin.H{
 		"message": "Update Order Successfully",
 		"data":    order,
@@ -327,6 +361,7 @@ func (h *Handlers) DeleteOrder(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		slog.Info("delete order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid order ID",
 		})
@@ -346,7 +381,7 @@ func (h *Handlers) DeleteOrder(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		slog.Error("Could not delete order", slog.Any("err", err.Error()))
+		slog.Error("failed to delete order", slog.Int64("order.id", id), slog.Any("err", err))
 		span.RecordError(err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to delete order",
@@ -362,6 +397,7 @@ func (h *Handlers) DeleteOrder(ctx *gin.Context) {
 
 	span.SetAttributes(attribute.String("operation.status", "success"))
 
+	slog.Info("order deleted", slog.Int64("order.id", id))
 	ctx.JSON(200, gin.H{
 		"message": "Delete Order Successfully",
 	})
