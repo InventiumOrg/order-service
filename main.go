@@ -30,7 +30,6 @@ func setupLogging(cfg config.Config) error {
 		}
 	}
 
-	// Fallback to stdout JSON logging
 	slog.Info("Using default stdout logging")
 	return nil
 }

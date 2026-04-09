@@ -5,7 +5,7 @@ import (
 	"net/http"
 	models "order-service/models/sqlc"
 	"order-service/observability"
-	"strconv"
+	"order-service/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -38,14 +38,8 @@ func (h *Handlers) GetOrder(ctx *gin.Context) {
 	_, span := h.tracer.Start(ctx.Request.Context(), "GetOrder")
 	defer span.End()
 
-	// Get order ID from URL parameter
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		slog.Info("get order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid order ID",
-		})
+	id, ok := utils.PathOrderID(ctx, "get order rejected")
+	if !ok {
 		return
 	}
 
@@ -146,61 +140,22 @@ func (h *Handlers) CreateOrder(ctx *gin.Context) {
 	_, span := h.tracer.Start(ctx.Request.Context(), "CreateOrder")
 	defer span.End()
 
-	// Parse form values
-	posIDStr := ctx.PostForm("pos_id")
-	priceStr := ctx.PostForm("price")
-	recipeIDStr := ctx.PostForm("recipe_id")
-
-	if posIDStr == "" || priceStr == "" || recipeIDStr == "" {
-		slog.Info("create order rejected: missing parameters",
-			slog.Bool("has_pos_id", posIDStr != ""),
-			slog.Bool("has_price", priceStr != ""),
-			slog.Bool("has_recipe_id", recipeIDStr != ""),
-		)
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing required parameters: pos_id, price, recipe_id",
-		})
-		return
-	}
-
-	posID, err := strconv.ParseInt(posIDStr, 10, 32)
-	if err != nil {
-		slog.Info("create order rejected: invalid pos_id", slog.String("pos_id", posIDStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid pos_id",
-		})
-		return
-	}
-
-	price, err := strconv.ParseInt(priceStr, 10, 32)
-	if err != nil {
-		slog.Info("create order rejected: invalid price", slog.String("price", priceStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid price",
-		})
-		return
-	}
-
-	recipeID, err := strconv.ParseInt(recipeIDStr, 10, 32)
-	if err != nil {
-		slog.Info("create order rejected: invalid recipe_id", slog.String("recipe_id", recipeIDStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid recipe_id",
-		})
+	posID, price, recipeID, ok := utils.OrderFormInts(ctx, "create order rejected", nil)
+	if !ok {
 		return
 	}
 
 	param := models.CreateOrderParams{
-		PosID:    int32(posID),
-		Price:    int32(price),
-		RecipeID: int32(recipeID),
+		PosID:    posID,
+		Price:    price,
+		RecipeID: recipeID,
 	}
 
 	// Add attributes to the span
 	span.SetAttributes(
-		attribute.Int("order.pos_id", int(posID)),
-		attribute.Int("order.price", int(price)),
-		attribute.Int(orderRecipeIDAttribute, int(recipeID)),
+		attribute.Int("order.pos_id", int(param.PosID)),
+		attribute.Int("order.price", int(param.Price)),
+		attribute.Int(orderRecipeIDAttribute, int(param.RecipeID)),
 	)
 
 	dbStart := time.Now()
@@ -253,67 +208,21 @@ func (h *Handlers) UpdateOrder(ctx *gin.Context) {
 	_, span := h.tracer.Start(ctx.Request.Context(), "UpdateOrder")
 	defer span.End()
 
-	// Get order ID from URL parameter
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		slog.Info("update order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid order ID",
-		})
+	id, ok := utils.PathOrderID(ctx, "update order rejected")
+	if !ok {
 		return
 	}
 
-	// Parse form values
-	posIDStr := ctx.PostForm("pos_id")
-	priceStr := ctx.PostForm("price")
-	recipeIDStr := ctx.PostForm("recipe_id")
-
-	if posIDStr == "" || priceStr == "" || recipeIDStr == "" {
-		slog.Info("update order rejected: missing parameters",
-			slog.Int64("order.id", id),
-			slog.Bool("has_pos_id", posIDStr != ""),
-			slog.Bool("has_price", priceStr != ""),
-			slog.Bool("has_recipe_id", recipeIDStr != ""),
-		)
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Missing required parameters: pos_id, price, recipe_id",
-		})
-		return
-	}
-
-	posID, err := strconv.ParseInt(posIDStr, 10, 32)
-	if err != nil {
-		slog.Info("update order rejected: invalid pos_id", slog.Int64("order.id", id), slog.String("pos_id", posIDStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid pos_id",
-		})
-		return
-	}
-
-	price, err := strconv.ParseInt(priceStr, 10, 32)
-	if err != nil {
-		slog.Info("update order rejected: invalid price", slog.Int64("order.id", id), slog.String("price", priceStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid price",
-		})
-		return
-	}
-
-	recipeID, err := strconv.ParseInt(recipeIDStr, 10, 32)
-	if err != nil {
-		slog.Info("update order rejected: invalid recipe_id", slog.Int64("order.id", id), slog.String("recipe_id", recipeIDStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid recipe_id",
-		})
+	posID, price, recipeID, ok := utils.OrderFormInts(ctx, "update order rejected", &id)
+	if !ok {
 		return
 	}
 
 	param := models.UpdateOrderParams{
 		ID:       id,
-		PosID:    int32(posID),
-		Price:    int32(price),
-		RecipeID: int32(recipeID),
+		PosID:    posID,
+		Price:    price,
+		RecipeID: recipeID,
 	}
 
 	// Add attributes to the span
@@ -359,14 +268,8 @@ func (h *Handlers) DeleteOrder(ctx *gin.Context) {
 	_, span := h.tracer.Start(ctx.Request.Context(), "DeleteOrder")
 	defer span.End()
 
-	// Get order ID from URL parameter
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		slog.Info("delete order rejected: invalid order id", slog.String("id_param", idStr), slog.Any("err", err))
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid order ID",
-		})
+	id, ok := utils.PathOrderID(ctx, "delete order rejected")
+	if !ok {
 		return
 	}
 
@@ -374,7 +277,7 @@ func (h *Handlers) DeleteOrder(ctx *gin.Context) {
 	span.SetAttributes(attribute.Int64("order.id", id))
 
 	dbStart := time.Now()
-	err = h.queries.DeleteOrder(ctx, id)
+	err := h.queries.DeleteOrder(ctx, id)
 	dbDuration := time.Since(dbStart)
 
 	// Record database operation duration (Prometheus)
